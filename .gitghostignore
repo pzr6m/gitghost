@@ -1,4 +1,5 @@
-# Paths GitGhost skips (fnmatch globs, one per line)
+# Fake keys used by the tests and the demo GIF script.
+# demo.tape was removed but is still in git history, so history scans need it listed.
 tests/
 docs/
 demo.tape

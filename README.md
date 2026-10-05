@@ -178,7 +178,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). To regenerate the screenshot, run `python docs/make_demo_svg.py`. To record a GIF, install [VHS](https://github.com/charmbracelet/vhs) and run `vhs demo.tape`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). To regenerate the demo GIF, run `python docs/make_demo_gif.py`.
 
 ## License
 
