@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- History scans now respect `gitghost:ignore`: once a line is marked, older copies of it aren't flagged again
+
 ## 0.2.0: checks for AI-built apps
 
 - New: flags secrets in browser-exposed variables (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_` and similar). Those get shipped to every visitor.

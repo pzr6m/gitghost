@@ -108,6 +108,8 @@ GitGhost **never prints your full key**. It only shows the first and last few ch
 EXAMPLE_TOKEN = "q8Zt3LmV0xKp7Rw2NcYb5HfJ"  # gitghost:ignore
 ```
 
+History scans respect it too: once a line is marked, older copies of it aren't flagged again.
+
 To skip whole folders, list them in a `.gitghostignore` file, one per line (e.g. `tests/fixtures/`).
 
 Need to commit anyway in an emergency? `git commit --no-verify` skips the check. Use it carefully.
@@ -126,7 +128,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: pzr6m/gitghost@v0.2.0
+      - uses: pzr6m/gitghost@v0.2.1
 ```
 
 Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-config.yaml` instead:
@@ -134,7 +136,7 @@ Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-confi
 ```yaml
 repos:
   - repo: https://github.com/pzr6m/gitghost
-    rev: v0.2.0
+    rev: v0.2.1
     hooks:
       - id: gitghost
 ```
