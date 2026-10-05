@@ -93,13 +93,13 @@ def render_findings(findings: list[Finding], scanned: int, staged: bool, history
     headline = Text.assemble(
         ("  🚫 COMMIT BLOCKED  " if staged else "  🚨 SECRETS FOUND  ", "bold white on red"),
         (f"  {len(findings)} potential secret{'s' * (len(findings) != 1)} in {files_hit} file{'s' * (files_hit != 1)}", "bold red"),
-        (f"  ({scanned} {'commits' if history else 'files'} scanned)", "dim"),
+        (f"  ({scanned} {'commit' if history else 'file'}{'s' * (scanned != 1)} scanned)", "dim"),
     )
     if history:
         headline = Text.assemble(
             ("  🕰  SECRETS IN HISTORY  ", "bold white on red"),
             (f"  {len(findings)} potential secret{'s' * (len(findings) != 1)} in {files_hit} file{'s' * (files_hit != 1)}", "bold red"),
-            (f"  ({scanned} commits scanned)", "dim"),
+            (f"  ({scanned} commit{'s' * (scanned != 1)} scanned)", "dim"),
         )
 
     fix = Text()

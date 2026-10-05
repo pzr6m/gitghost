@@ -1,6 +1,9 @@
-# Publishes to PyPI when you push a version tag, e.g.:  git tag v0.2.0 && git push --tags
-# One-time setup: on pypi.org add a "Trusted Publisher" for this repo
-# (workflow: release.yml, environment: pypi). No API tokens needed.
+# Push a version tag to release:  git tag v0.2.0 && git push --tags
+#  - Always: builds the package and creates a GitHub Release with the files attached.
+#  - PyPI: also publishes once you've set it up (one time):
+#      1. pypi.org -> Your projects -> Publishing -> add a Trusted Publisher for this repo
+#         (workflow: release.yml, environment: pypi)
+#      2. GitHub repo -> Settings -> Variables -> Actions -> add PYPI_PUBLISH = true
 name: Release
 
 on:
@@ -8,22 +11,46 @@ on:
     tags: ["v*"]
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: python -m pip install build
+      - run: python -m pip install build twine
       - run: python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
-      - name: GitHub release
-        uses: softprops/action-gh-release@v2
+      - run: python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+
+  pypi:
+    needs: build
+    if: vars.PYPI_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

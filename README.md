@@ -12,7 +12,7 @@
 
 Regex for known key formats · Shannon entropy for everything else · only scans what you're committing · ~0.15 s per commit
 
-![GitGhost blocking a commit](docs/demo.svg)
+![GitGhost blocking a commit, then allowing it once the key is moved to an env var](docs/demo.gif)
 
 </div>
 
