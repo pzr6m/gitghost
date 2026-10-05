@@ -215,7 +215,8 @@ def test_scan_path_and_ignore_file(tmp_path):
 
 
 def sh(*args, cwd):
-    return subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    # utf-8 explicitly: on Windows the default would be cp1252, which can't decode the hook's output
+    return subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
 @pytest.fixture
