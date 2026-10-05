@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [0.1.2] - 2026-10-05
+
+### Changed
+- Plain-English README and `--help` text.
+- Removed unused files (old screenshot, VHS tape, PR template).
+
 ## [0.1.1] - 2026-10-05
 
 ### Fixed

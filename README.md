@@ -104,7 +104,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: pzr6m/gitghost@v0.1.1
+      - uses: pzr6m/gitghost@v0.1.2
 ```
 
 Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-config.yaml` instead:
@@ -112,7 +112,7 @@ Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-confi
 ```yaml
 repos:
   - repo: https://github.com/pzr6m/gitghost
-    rev: v0.1.1
+    rev: v0.1.2
     hooks:
       - id: gitghost
 ```
