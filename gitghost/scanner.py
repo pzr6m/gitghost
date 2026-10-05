@@ -155,7 +155,7 @@ SERVER_ONLY_PROVIDER = re.compile(
 def exposed_env_name(name: str) -> bool:
     """True for a browser-exposed variable whose name says it holds a secret.
 
-    NEXT_PUBLIC_OPENAI_API_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY, REACT_APP_STRIPE_SECRET_KEY -> True
+    NEXT_PUBLIC_OPENAI_API_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY, REACT_APP_STRIPE_SECRET_KEY -> True  (gitghost:ignore)
     NEXT_PUBLIC_SUPABASE_ANON_KEY, VITE_STRIPE_PUBLISHABLE_KEY, NEXT_PUBLIC_OPENAI_MODEL  -> False
     """
     rest = name.split("_", 2)[-1] if name.startswith(("NEXT_PUBLIC_", "EXPO_PUBLIC_", "NUXT_PUBLIC_", "REACT_APP_", "VUE_APP_")) \
