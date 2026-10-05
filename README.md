@@ -5,7 +5,7 @@
 **A pre-commit hook that stops API keys, passwords and `.env` files before they ever reach git.**
 
 [![CI](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml/badge.svg)](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/gitghost-cli)](https://pypi.org/project/gitghost-cli/)
+[![Release](https://img.shields.io/github/v/release/pzr6m/gitghost)](https://github.com/pzr6m/gitghost/releases)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -28,14 +28,14 @@ You need **Python 3.9+** and **git**.
 
 **macOS / Linux**
 ```bash
-pip install gitghost-cli        # or: pipx install gitghost-cli
+pipx install git+https://github.com/pzr6m/gitghost     # or: pip install git+https://github.com/pzr6m/gitghost
 cd path/to/your-repo
 gitghost install
 ```
 
 **Windows (PowerShell, cmd, or Git Bash)**
 ```powershell
-py -m pip install gitghost-cli
+py -m pip install git+https://github.com/pzr6m/gitghost
 cd path\to\your-repo
 gitghost install
 ```
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0          # full history
-      - uses: pzr6m/gitghost@v0.1.0
+      - uses: pzr6m/gitghost@v0.1.1
 ```
 
 Use `with: { mode: files }` to scan only the current files.
@@ -98,7 +98,7 @@ Use `with: { mode: files }` to scan only the current files.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pzr6m/gitghost
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: gitghost
 ```

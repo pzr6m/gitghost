@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning: [SemVer](https://semver.org/).
 
+## [0.1.1] - 2026-10-05
+
+### Fixed
+- GitHub Action now installs GitGhost from the Action's own checkout instead of PyPI.
+- Install instructions use the GitHub URL until the PyPI package is live.
+- "1 files scanned" grammar in the alert header.
+
+### Added
+- Animated demo GIF in the README.
+- CI runs on Windows, macOS and Linux × Python 3.9 / 3.11 / 3.13, and tests the GitHub Action on every push.
+- Releases are created automatically when the version changes on `main`.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added

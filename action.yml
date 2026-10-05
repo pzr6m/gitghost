@@ -9,9 +9,6 @@ inputs:
   mode:
     description: '"history" scans every commit (needs actions/checkout with fetch-depth: 0); "files" scans the current files.'
     default: history
-  version:
-    description: "gitghost-cli version to install (default: latest)"
-    default: ""
 
 runs:
   using: composite
@@ -20,7 +17,7 @@ runs:
       with:
         python-version: "3.13"
     - shell: bash
-      run: python -m pip install --quiet "gitghost-cli${{ inputs.version && format('=={0}', inputs.version) || '' }}"
+      run: python -m pip install --quiet "${{ github.action_path }}"
     - shell: bash
       run: |
         if [ "${{ inputs.mode }}" = "files" ]; then gitghost scan .; else gitghost scan --history; fi
