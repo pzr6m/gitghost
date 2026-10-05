@@ -2,7 +2,7 @@
 
 # 👻 GitGhost
 
-**A pre-commit hook that stops API keys, passwords and `.env` files before they ever reach git.**
+**Stops you from accidentally committing passwords and API keys to git.**
 
 [![CI](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml/badge.svg)](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/pzr6m/gitghost)](https://github.com/pzr6m/gitghost/releases)
@@ -10,74 +10,91 @@
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Regex for known key formats · Shannon entropy for everything else · only scans what you're committing · ~0.15 s per commit
-
-![GitGhost blocking a commit, then allowing it once the key is moved to an env var](docs/demo.gif)
+![GitGhost blocking a commit that contains an API key, then allowing it once the key is removed](docs/demo.gif)
 
 </div>
 
----
+## What it does
 
-## Why
+Every time you run `git commit`, GitGhost checks the code you're about to commit.
 
-Once a key is pushed, deleting it doesn't help. Bots scrape public GitHub for credentials within minutes, and the key stays in your git history. The only fix that actually works is never committing it. GitGhost sits in your repo's pre-commit hook and blocks the commit before it exists.
+- 🚫 **Finds a key or password?** It stops the commit and shows you exactly which file and line it's on.
+- ✅ **Nothing found?** Your commit goes through as normal. It takes about 0.15 seconds.
 
-## Quick start
+**Why it matters:** once a key is pushed to GitHub, bots can find it within minutes, and deleting it later doesn't remove it from your git history. The only real fix is never committing it in the first place.
 
-You need **Python 3.9+** and **git**.
+## Install
 
-**macOS / Linux**
+You need [Python 3.9+](https://www.python.org/downloads/) and git.
+
+**1. Install GitGhost** (once per computer):
+
 ```bash
-pipx install git+https://github.com/pzr6m/gitghost     # or: pip install git+https://github.com/pzr6m/gitghost
-cd path/to/your-repo
+pip install git+https://github.com/pzr6m/gitghost
+```
+
+On Windows, use `py -m pip install git+https://github.com/pzr6m/gitghost`.
+
+**2. Turn it on in a project** (once per project):
+
+```bash
+cd your-project
 gitghost install
 ```
 
-**Windows (PowerShell, cmd, or Git Bash)**
-```powershell
-py -m pip install git+https://github.com/pzr6m/gitghost
-cd path\to\your-repo
-gitghost install
-```
+That's it. Just keep using `git commit` like you always do.
 
-That's it. Every `git commit` in that repo is now scanned. Clean commits print one line and carry on:
-
-```
-👻 gitghost ✓ 3 staged files clean
-```
-
-If a secret is staged, the commit is blocked and you get the table above, showing the file, line, what was detected and a masked preview.
-
-> **`gitghost: command not found`?** pip installed it somewhere not on your PATH. Use `python -m gitghost install` (Windows: `py -m gitghost install`). Every command works the same way through `python -m gitghost`.
+> **Seeing `gitghost: command not found`?** Use `python -m gitghost` instead of `gitghost`. Every command works the same way.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `gitghost install` | Adds GitGhost to this repo's pre-commit hook. Keeps any hook code you already have, and is safe to run twice. Run it once per repo. |
-| `gitghost uninstall` | Removes only GitGhost's part of the hook. |
-| `gitghost scan` | Scans your staged changes (exactly what the hook does). |
-| `gitghost scan .` | Scans every file in the current folder. Good for a first audit. |
-| `gitghost scan --history` | Scans **every commit** in this branch, and tells you which commit introduced each secret. Add `--all` for all branches. |
-| `gitghost scan --json` | Machine-readable output for scripts and CI (works with all of the above). |
-| `gitghost --help` | All options. |
+| `gitghost install` | Turns on automatic checking for this project |
+| `gitghost uninstall` | Turns it off again |
+| `gitghost scan .` | Checks every file in the project right now |
+| `gitghost scan --history` | Checks your **old commits** for keys that were already committed |
+| `gitghost --help` | Shows all options |
 
-**Exit codes:** `0` clean · `1` secrets found · `2` error (e.g. not a git repo).
-
-### First time in an existing project?
+**Using GitGhost on an existing project for the first time?** Run these three:
 
 ```bash
-gitghost scan --history   # anything already leaked in past commits?
-gitghost scan .           # anything sitting in your files right now?
-gitghost install          # stop it happening again
+gitghost scan --history   # did a key get committed in the past?
+gitghost scan .           # is there a key in your files right now?
+gitghost install          # stop it happening in the future
 ```
 
-## CI and team setup
+## What it catches
 
-**GitHub Action:** fails the build if a secret is anywhere in the repo's history.
+- **Known API keys:** OpenAI, Anthropic, AWS, Stripe, GitHub, Google, Slack, Discord, Telegram, SendGrid, Twilio, Hugging Face, npm
+- **Private keys:** SSH and certificate keys (`id_rsa`, `.pem` private keys, `.p12`…)
+- **Secret files:** `.env`, `.env.production` and similar (`.env.example` is allowed)
+- **Hardcoded passwords:** `password = "..."` in code, or passwords inside URLs like `postgres://user:pass@host`
+- **Random-looking strings** that are probably secrets, even without a known format
+
+GitGhost **never prints your full key**. It only shows the first and last few characters, like `sk-pro…S1aZ`.
+
+## It found something. What now?
+
+1. **Move the key out of your code.** Put it in an environment variable or a `.env` file.
+2. **Make sure `.env` is in your `.gitignore`**, so it never gets committed.
+3. **If the key was ever pushed anywhere, replace it** with a new one from the provider's website. Deleting it from your code doesn't help once it's been public.
+
+**Not actually a secret?** Add `# gitghost:ignore` to the end of that line:
+
+```python
+EXAMPLE_TOKEN = "q8Zt3LmV0xKp7Rw2NcYb5HfJ"  # gitghost:ignore
+```
+
+To skip whole folders, list them in a `.gitghostignore` file, one per line (e.g. `tests/fixtures/`).
+
+Need to commit anyway in an emergency? `git commit --no-verify` skips the check. Use it carefully.
+
+## Check every push automatically (optional)
+
+Add this file to your repo as `.github/workflows/secrets.yml` and GitHub will check every push and pull request:
 
 ```yaml
-# .github/workflows/secrets.yml
 name: Secret scan
 on: [push, pull_request]
 jobs:
@@ -86,16 +103,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0          # full history
+          fetch-depth: 0
       - uses: pzr6m/gitghost@v0.1.1
 ```
 
-Use `with: { mode: files }` to scan only the current files.
-
-**[pre-commit](https://pre-commit.com) framework:**
+Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-config.yaml` instead:
 
 ```yaml
-# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pzr6m/gitghost
     rev: v0.1.1
@@ -103,82 +117,31 @@ repos:
       - id: gitghost
 ```
 
-## What it detects
+## Good to know
 
-**Layer 1: known formats (regex).**
-AWS access keys & secrets · OpenAI (`sk-proj-`, `sk-svcacct-`, legacy) · Anthropic (`sk-ant-`) · Stripe live keys · GitHub classic & fine-grained tokens · Google API keys · Slack tokens & webhooks · Discord webhooks · Telegram bot tokens · SendGrid · Twilio · Hugging Face · npm tokens · private key blocks (RSA/EC/DSA/OpenSSH/PGP) · JWTs · passwords inside URLs (`postgres://user:pass@host`)
+- **Works on** Windows, macOS and Linux with Python 3.9 to 3.13. Every change is tested on all three.
+- **Private:** it runs entirely on your computer and never sends your code anywhere.
+- **Won't lock you out:** if GitGhost itself ever crashes, it lets your commit through instead of blocking you.
+- **Not a guarantee:** it's a safety net. Very short or unusual secrets can slip past, and anyone can skip it with `--no-verify`. For teams, add the GitHub check above too.
 
-**Layer 2: Shannon entropy.**
-Catches custom secrets that don't match any known format, such as session salts, internal API tokens and signing keys.
+<details>
+<summary><b>How does it work?</b> (technical details)</summary>
 
-**Layer 3: sensitive files and assignments.**
-`.env`, `.env.production` etc. (but not `.env.example`) · `id_rsa`, `id_ed25519`, `.key`, `.p12`, `.pfx`, `.jks` · `.netrc`, `.npmrc`, `credentials.json` · `KEY=value` secrets inside env files · `password = "..."`-style hardcoded literals in code.
+<br>
 
-### How the entropy check works (and why it's not just "> 4.5")
+GitGhost checks only the lines you're **adding** in the commit (`git diff --cached`), so old code never blocks you. Each line goes through three checks:
 
-A naive rule like *length > 16 and entropy > 4.5* is mathematically broken. A 20-character string can have at most log₂(20) = 4.32 bits of entropy, so that rule would **never** flag a 20–30 character secret. GitGhost uses length-calibrated thresholds measured against thousands of random strings, then filters out the things that look random but aren't:
+1. **Known formats:** regular expressions for 19 key types. Each regex only runs if a cheap keyword check matches first, which keeps it fast.
+2. **Shannon entropy:** measures how random a string looks. A common rule of thumb is "flag strings longer than 16 characters with entropy above 4.5", but that's mathematically broken: a 20-character string can't go above 4.32. GitGhost uses thresholds calibrated against thousands of random strings at each length.
+3. **Noise filters:** skips things that look random but aren't, like `camelCaseNames`, `UPPER_SNAKE_CASE` constants, git commit hashes, URLs, file paths, embedded images and placeholders like `your_api_key_here`.
 
-- **Identifiers**, which split cleanly into words/acronyms: `getUserAccountSettings`, `CAP_OPENNI_QVGA_30HZ`, `PyUnicode_GetSize`
-- **Hex hashes** like git SHAs, which are only flagged when the line also mentions a key, secret, token or password
-- **URLs, paths, escape sequences, minified lines and big embedded data blobs** (fonts, images)
-- **Placeholders**: `your_api_key_here`, `changeme`, `${SECRET}`, `os.environ[...]`
+Tested against ~11,500 real source files from popular open-source projects (pandas, scikit-learn, requests, rich…). 0.4% of files were flagged, mostly embedded binary data.
 
-Benchmarked against ~11,500 real source files from popular open-source Python packages (rich, requests, urllib3, click, jinja2, pandas, scikit-learn…). Most packages had zero findings; overall 0.4% of files were flagged, mostly embedded binary data.
+</details>
 
-### Only new lines
+## Contributing
 
-In hook mode GitGhost reads `git diff --cached`, so it only checks lines you're **adding** in this commit. An old false positive elsewhere in a file won't block you every time you touch that file.
-
-## False positives
-
-Add `gitghost:ignore` anywhere on the line:
-
-```python
-FIXTURE_TOKEN = "q8Zt3LmV0xKp7Rw2NcYb5HfJ"  # gitghost:ignore
-```
-
-Or ignore whole paths with a `.gitghostignore` file in your repo root (fnmatch globs):
-
-```
-tests/fixtures/
-*.snap
-docs/examples/*.md
-```
-
-Emergency bypass (you probably shouldn't): `git commit --no-verify`
-
-## If GitGhost catches something
-
-1. Move the value into an environment variable or a secrets manager.
-2. Add the file to `.gitignore` and run `git rm --cached <file>`.
-3. **If the key was ever pushed anywhere, rotate it.** Removing it from git does not un-leak it.
-4. If it's in your history (`gitghost scan --history`), rotate first, then rewrite history with [`git filter-repo`](https://github.com/newren/git-filter-repo) or [BFG](https://rtyley.github.io/bfg-repo-cleaner/).
-
-## Reliability
-
-- **It never locks you out.** If GitGhost itself hits a bug, it prints a warning and lets the commit through rather than blocking all your work. Set `GITGHOST_STRICT=1` if you'd rather it block.
-- **It works on Windows, macOS and Linux,** with Python 3.9–3.13. Every push is tested on all three.
-- **It never prints a full secret.** Output is always masked.
-- **It makes no network calls.** Your code never leaves your machine.
-
-## Limitations
-
-- It's a **local** hook. Anyone can skip it with `--no-verify` or by not installing it, so pair it with the GitHub Action for a hard guarantee.
-- Entropy detection is probabilistic. Very short secrets (under 20 characters) with no recognisable format can slip through, and random-looking non-secrets occasionally get flagged.
-- Binary files and files over 1 MB are skipped.
-
-## Development
-
-```bash
-git clone https://github.com/pzr6m/gitghost
-cd gitghost
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -e ".[dev]"
-pytest
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). To regenerate the demo GIF, run `python docs/make_demo_gif.py`.
+Found a false alarm, or a key format GitGhost misses? [Open an issue](https://github.com/pzr6m/gitghost/issues/new/choose). To work on the code, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
