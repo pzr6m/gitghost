@@ -24,7 +24,3 @@ pytest
 ## Fixing a false positive
 
 Add the exact (redacted) line to `test_false_positives` first, watch it fail, then fix the filter. Run `gitghost scan` against a big real codebase before and after to make sure you didn't open a gap.
-
-## Style
-
-Keep it dependency-light (`typer` + `rich` only), keep the hook fast (it runs on every commit), and prefer clear code over clever code.
