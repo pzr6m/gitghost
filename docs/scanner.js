@@ -54,6 +54,7 @@
     R("Hugging Face Token", /\b(hf_[A-Za-z0-9]{34,})/g, ["hf_"]),
     R("npm Token", /\b(npm_[A-Za-z0-9]{36})\b/g, ["npm_"]),
     R("Private Key Block", /(-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----)/g, ["private key"]),
+    R("Supabase Secret Key", /\b(sb_secret_[A-Za-z0-9_\-]{20,})/g, ["sb_secret_"]),
     R("JSON Web Token", /\b(eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,})/g, ["eyj"]),
     R("Credentials in URL", /\b[a-z][a-z0-9+.\-]*:\/\/[^\s:/@'"]+:([^\s:/@'"]{6,})@[^\s'"]+/g, ["://"]),
   ];
@@ -74,6 +75,38 @@
     if (new Set(cps(v)).size <= 3) return true;
     if (/^[^@\s:]+@[^@\s]+\.[a-z]{2,}$/i.test(v)) return true;
     return false;
+  }
+
+  // ---------------------------------------------------------------- AI-built apps
+  const PUBLIC_ENV = /\b(?:NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|NUXT_PUBLIC|VUE_APP|GATSBY|PUBLIC)_[A-Z0-9_]+\b/g;
+  const PUBLIC_ENV_KEYWORDS = ["next_public_", "vite_", "react_app_", "expo_public_", "nuxt_public_", "vue_app_", "gatsby_", "public_"];
+  const ALWAYS_SECRET = /SECRET|PRIVATE_KEY|SERVICE_ROLE|SERVICE_KEY|PASSWORD|PASSWD|DATABASE_URL|DB_URL|POSTGRES|MONGO|SK_LIVE/;
+  const SERVER_ONLY_PROVIDER = /OPENAI|ANTHROPIC|CLAUDE|GEMINI|GROQ|MISTRAL|REPLICATE|DEEPSEEK|OPENROUTER|ELEVENLABS|PERPLEXITY|COHERE|RESEND|SENDGRID|TWILIO/;
+
+  function pySplitLast(s, sep, maxsplit) { // Python's s.split(sep, maxsplit)[-1]
+    let rest = s;
+    for (let i = 0; i < maxsplit; i++) { const j = rest.indexOf(sep); if (j < 0) break; rest = rest.slice(j + sep.length); }
+    return rest;
+  }
+  function exposedEnvName(name) {
+    const twoPart = ["NEXT_PUBLIC_", "EXPO_PUBLIC_", "NUXT_PUBLIC_", "REACT_APP_", "VUE_APP_"].some((p) => name.startsWith(p));
+    const rest = pySplitLast(name, "_", twoPart ? 2 : 1);
+    if (rest.includes("PUBLISHABLE")) return false;
+    if (ALWAYS_SECRET.test(rest)) return true;
+    return SERVER_ONLY_PROVIDER.test(rest) && /KEY|TOKEN/.test(rest);
+  }
+  function jwtRole(token) {
+    try {
+      let seg = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      if (seg.length % 4 === 1) return null;
+      seg += "=".repeat((4 - (seg.length % 4)) % 4);
+      const bytes = Uint8Array.from(atob(seg), (c) => c.charCodeAt(0));
+      const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+      const role = data && typeof data === "object" && !Array.isArray(data) ? data.role : null;
+      return typeof role === "string" ? role : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------- layer 2: entropy
@@ -220,8 +253,23 @@
           if (overlaps(s, e)) continue;
           if (rule.name === "Credentials in URL" && isPlaceholder(g)) continue;
           claimed.push([s, e]);
-          findings.push(F(rule.name, "pattern", g));
+          let name = rule.name;
+          if (name === "JSON Web Token") {
+            const role = jwtRole(g);
+            if (role === "anon") continue; // Supabase anon keys are meant to be public
+            if (role === "service_role") name = "Supabase Service Role Key";
+          }
+          findings.push(F(name, "pattern", g));
         }
+      }
+    }
+
+    if (PUBLIC_ENV_KEYWORDS.some((k) => lower.includes(k))) {
+      for (const m of line.matchAll(PUBLIC_ENV)) {
+        const s = m.index, e = s + m[0].length;
+        if (overlaps(s, e) || !exposedEnvName(m[0])) continue;
+        claimed.push([s, e]);
+        findings.push(F("Secret exposed to browser", "exposed", m[0], "sent to every visitor's browser"));
       }
     }
 
@@ -290,12 +338,13 @@
   }
 
   // ---------------------------------------------------------------- grade
-  const WEIGHTS = { "Private Key Block": 60, file: 40, pattern: 40, assignment: 25, entropy: 5 };
+  const WEIGHTS = { critical: 60, file: 40, pattern: 40, exposed: 30, assignment: 25, entropy: 5 };
   function grade(findings) {
     let score = 100, entropyPenalty = 0;
     for (const f of findings) {
       if (f.kind === "entropy") entropyPenalty += WEIGHTS.entropy;
-      else if (f.rule === "Private Key Block") score -= WEIGHTS["Private Key Block"];
+      else if (f.rule === "Private Key Block" || f.rule === "Supabase Service Role Key") score -= WEIGHTS.critical;
+      else if (f.kind === "exposed") score -= WEIGHTS.exposed;
       else if (f.kind === "file") score -= WEIGHTS.file;
       else if (f.rule === "Hardcoded credential" || f.rule === "Secret in .env") score -= WEIGHTS.assignment;
       else score -= WEIGHTS.pattern;
@@ -307,7 +356,7 @@
   }
 
   return {
-    RULES, mask, calculateEntropy, entropyHit, looksLikeIdentifier, wordCoverage, isPlaceholder,
+    RULES, mask, exposedEnvName, jwtRole, calculateEntropy, entropyHit, looksLikeIdentifier, wordCoverage, isPlaceholder,
     isEnvFile, isSensitiveFile, shouldSkip, inSkippedDir, loadIgnoreGlobs, isIgnored, wantFile,
     scanLine, scanText, grade, IGNORE_FILE, MAX_FILE_BYTES,
   };

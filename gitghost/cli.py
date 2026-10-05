@@ -80,10 +80,10 @@ def render_findings(findings: list[Finding], scanned: int, staged: bool, history
     table.add_column("Line", justify="right", style="yellow", no_wrap=True)
     table.add_column("Detection", style="bold", ratio=2)
     table.add_column("Reason", style="magenta", ratio=2)
-    table.add_column("Secret (masked)", style="bold red", no_wrap=True, ratio=2)
+    table.add_column("Secret (masked)", style="bold red", overflow="fold", ratio=2)
 
     for f in findings if history else sorted(findings, key=lambda x: (x.file, x.line)):
-        reason = {"pattern": "Regex match", "entropy": "High entropy", "file": "Filename"}[f.kind]
+        reason = {"pattern": "Regex match", "entropy": "High entropy", "file": "Filename", "exposed": "Public variable"}.get(f.kind, f.kind)
         if f.detail:
             reason += f"\n[dim]{f.detail}[/]"
         row = [f.file, str(f.line) if f.line else "—", f.rule, reason, "—" if f.kind == "file" else f.masked]
@@ -130,6 +130,11 @@ def render_findings(findings: list[Finding], scanned: int, staged: bool, history
     fix.append("# gitghost:ignore", style="bold cyan")
     fix.append(" to the line, or a path glob to ")
     fix.append(".gitghostignore", style="bold cyan")
+    if any(f.kind == "exposed" for f in findings):
+        fix.append("\n\nAbout public variables: ", style="bold")
+        fix.append("anything named NEXT_PUBLIC_*, VITE_*, REACT_APP_* (and similar) is copied into the JavaScript "
+                   "every visitor downloads. Rename secret ones without the prefix and only use them in server code "
+                   "(an API route or edge function).")
     if staged:
         fix.append("\n\nEmergency bypass (not recommended): ", style="dim")
         fix.append("git commit --no-verify", style="dim cyan")

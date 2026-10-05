@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gitghost-cli"
 dynamic = ["version"]
-description = "Pre-commit hook that blocks API keys, passwords and .env files before they reach git."
+description = "Catches the API keys AI-built apps leak: hardcoded keys, secrets in NEXT_PUBLIC_/VITE_ variables, Supabase service keys and .env files."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Omar" }]
-keywords = ["git", "secrets", "pre-commit", "security", "api-keys", "entropy", "cli"]
+keywords = ["git", "secrets", "pre-commit", "security", "api-keys", "supabase", "nextjs", "vite", "vibe-coding", "ai"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Operating System :: OS Independent",

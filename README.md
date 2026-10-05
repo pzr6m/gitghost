@@ -2,7 +2,9 @@
 
 # 👻 GitGhost
 
-**Stops you from accidentally committing passwords and API keys to git.**
+**Built your app with AI? Make sure it didn't leak your API keys.**
+
+Made with Lovable, Bolt, Cursor, v0 or Claude Code? AI-built apps leak keys in ways normal scanners miss. GitGhost catches them before they go public.
 
 [![CI](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml/badge.svg)](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/pzr6m/gitghost)](https://github.com/pzr6m/gitghost/releases)
@@ -16,6 +18,17 @@
 ![GitGhost blocking a commit that contains an API key, then allowing it once the key is removed](docs/demo.gif)
 
 </div>
+
+## Why AI-built apps leak keys
+
+AI tools write working code fast, and they often take the shortest path to "it works":
+
+- 🔑 **Pasting the key straight into the code**, e.g. `const openai = new OpenAI({ apiKey: "sk-proj-…" })`
+- 🌐 **Putting a secret in a public variable.** Anything starting with `NEXT_PUBLIC_`, `VITE_` or `REACT_APP_` is copied into your website's JavaScript, so **every visitor can read it**. An OpenAI key there gets found and drained.
+- 🗄️ **Using the Supabase "service role" key in the app.** It skips all your database security, so whoever finds it can read and delete everything.
+- 📄 **Committing the `.env` file.**
+
+GitGhost checks for all four, plus 19 other key formats. Normal secret scanners only look for the first and last.
 
 ## What it does
 
@@ -73,6 +86,8 @@ gitghost install          # stop it happening in the future
 
 ## What it catches
 
+- **Secrets in public variables:** a secret-looking name (like an OpenAI key, a Stripe secret key, a database URL or a Supabase service role key) starting with `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`, `EXPO_PUBLIC_`, `NUXT_PUBLIC_`, `VUE_APP_`, `GATSBY_` or `PUBLIC_`. Keys that are meant to be public, like the Supabase anon key or Stripe publishable key, are left alone.
+- **Supabase admin keys:** `service_role` keys and the newer secret keys
 - **Known API keys:** OpenAI, Anthropic, AWS, Stripe, GitHub, Google, Slack, Discord, Telegram, SendGrid, Twilio, Hugging Face, npm
 - **Private keys:** SSH and certificate keys (`id_rsa`, `.pem` private keys, `.p12`…)
 - **Secret files:** `.env`, `.env.production` and similar (`.env.example` is allowed)
@@ -83,7 +98,7 @@ GitGhost **never prints your full key**. It only shows the first and last few ch
 
 ## It found something. What now?
 
-1. **Move the key out of your code.** Put it in an environment variable or a `.env` file.
+1. **Move the key out of your code.** Put it in an environment variable or a `.env` file. If it's in a public variable (`NEXT_PUBLIC_…`, `VITE_…`), remove the prefix and only use it in server code, like an API route or a Supabase edge function. Your AI tool can do this for you: ask it to "move this API call to a server route".
 2. **Make sure `.env` is in your `.gitignore`**, so it never gets committed.
 3. **If the key was ever pushed anywhere, replace it** with a new one from the provider's website. Deleting it from your code doesn't help once it's been public.
 
@@ -111,7 +126,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: pzr6m/gitghost@v0.1.2
+      - uses: pzr6m/gitghost@v0.2.0
 ```
 
 Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-config.yaml` instead:
@@ -119,7 +134,7 @@ Already use [pre-commit](https://pre-commit.com)? Add this to `.pre-commit-confi
 ```yaml
 repos:
   - repo: https://github.com/pzr6m/gitghost
-    rev: v0.1.2
+    rev: v0.2.0
     hooks:
       - id: gitghost
 ```

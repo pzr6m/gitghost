@@ -4,6 +4,7 @@ Fake keys are assembled at runtime (e.g. "sk_" + "live_") so this file itself ne
 contains a key-shaped string — otherwise GitHub push protection would block the repo.
 """
 
+import base64
 import json
 import os
 import random
@@ -408,3 +409,60 @@ def test_path_scan_outside_git_walks_folder(tmp_path):
     (tmp_path / "k.py").write_text('K = "sk_' + "live_" + rand(24) + '"\n')
     findings, scanned = scan_path(tmp_path)
     assert scanned == 1 and len(findings) == 1
+
+
+# --- AI-built apps ----------------------------------------------------------------
+
+
+def make_jwt(payload):
+    b = lambda d: base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
+    return b({"alg": "HS256", "typ": "JWT"}) + "." + b(payload) + "." + rand(43)
+
+
+@pytest.mark.parametrize("line", [
+    "const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY",
+    "const s = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;",
+    "REACT_APP_STRIPE_SECRET_KEY=",
+    "EXPO_PUBLIC_ANTHROPIC_API_KEY=",
+    "NEXT_PUBLIC_DATABASE_URL=",
+    "PUBLIC_JWT_SECRET=",
+])
+def test_secret_in_public_env_var_is_flagged(line):
+    found = scan_line("app.ts", 1, line)
+    assert [f.rule for f in found] == ["Secret exposed to browser"]
+    assert found[0].masked.startswith(("NEXT_PUBLIC_", "VITE_", "REACT_APP_", "EXPO_PUBLIC_", "PUBLIC_"))  # name shown in full
+
+
+@pytest.mark.parametrize("line", [
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY=",
+    "NEXT_PUBLIC_SUPABASE_URL=",
+    "VITE_STRIPE_PUBLISHABLE_KEY=",
+    "NEXT_PUBLIC_OPENAI_MODEL=gpt-4o",
+    "NEXT_PUBLIC_ADMIN_EMAIL=me@example.com",
+    "VITE_FIREBASE_API_KEY=",
+    "INVITE_SECRET = 1",
+])
+def test_public_by_design_vars_are_not_flagged(line):
+    assert scan_line("app.ts", 1, line) == []
+
+
+def test_supabase_service_role_jwt_is_flagged_and_anon_is_not():
+    svc = make_jwt({"iss": "supabase", "ref": "abcdefghijklmnop", "role": "service_role"})
+    anon = make_jwt({"iss": "supabase", "ref": "abcdefghijklmnop", "role": "anon"})
+    assert rules(f'const admin = createClient(url, "{svc}")') == ["Supabase Service Role Key"]
+    assert rules(f'const client = createClient(url, "{anon}")') == []
+
+
+def test_supabase_secret_key_format():
+    assert rules('KEY = "sb_' + "secret_" + rand(32) + '"') == ["Supabase Secret Key"]
+    assert rules('KEY = "sb_' + "publishable_" + "abcdefghijklmnopqrstuv" + '"') == []
+
+
+def test_exposed_finding_in_cli_output(repo):
+    (repo / "page.tsx").write_text("const k = process.env.NEXT_PUBLIC_OPENAI_API_KEY\n")
+    sh("git", "add", "-A", cwd=repo)
+    r = runner.invoke(app, ["scan"])
+    assert r.exit_code == 1 and "About public variables" in r.output
+    data = json.loads(runner.invoke(app, ["scan", "--json"]).output)
+    assert [(f["rule"], f["kind"], f["masked"]) for f in data["findings"]] == [
+        ("Secret exposed to browser", "exposed", "NEXT_PUBLIC_OPENAI_API_KEY")]
