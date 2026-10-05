@@ -1,0 +1,26 @@
+name: GitGhost secret scan
+description: Fail the build if API keys, passwords or .env files are in the repo or its history.
+author: Omar
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  mode:
+    description: '"history" scans every commit (needs actions/checkout with fetch-depth: 0); "files" scans the current files.'
+    default: history
+  version:
+    description: "gitghost-cli version to install (default: latest)"
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - shell: bash
+      run: python -m pip install --quiet "gitghost-cli${{ inputs.version && format('=={0}', inputs.version) || '' }}"
+    - shell: bash
+      run: |
+        if [ "${{ inputs.mode }}" = "files" ]; then gitghost scan .; else gitghost scan --history; fi

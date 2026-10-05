@@ -17,7 +17,16 @@ from rich.table import Table
 from rich.text import Text
 
 from . import __version__
-from .scanner import Finding, GitError, git, repo_root, scan_path, scan_staged
+from .scanner import Finding, GitError, git, repo_root, scan_history, scan_path, scan_staged
+
+# Windows: when git runs the hook, output is a pipe in the legacy code page (cp1252), and
+# printing 👻 or box-drawing characters would crash Python and block every commit.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if _stream is not None and (_stream.encoding or "").lower().replace("-", "") != "utf8":
+            _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    except Exception:  # pragma: no cover - exotic streams
+        pass
 
 app = typer.Typer(
     add_completion=False,
@@ -63,28 +72,51 @@ def main(
 # ---------------------------------------------------------------------------
 
 
-def render_findings(findings: list[Finding], scanned: int, staged: bool) -> None:
+def render_findings(findings: list[Finding], scanned: int, staged: bool, history: bool = False) -> None:
     table = Table(box=box.HEAVY_HEAD, border_style="red", header_style="bold white on red", expand=True, show_lines=False)
+    if history:
+        table.add_column("Commit", style="bold yellow", no_wrap=True)
     table.add_column("File", style="bold cyan", overflow="fold", ratio=3)
     table.add_column("Line", justify="right", style="yellow", no_wrap=True)
     table.add_column("Detection", style="bold", ratio=2)
     table.add_column("Reason", style="magenta", ratio=2)
     table.add_column("Secret (masked)", style="bold red", no_wrap=True, ratio=2)
 
-    for f in sorted(findings, key=lambda x: (x.file, x.line)):
+    for f in findings if history else sorted(findings, key=lambda x: (x.file, x.line)):
         reason = {"pattern": "Regex match", "entropy": "High entropy", "file": "Filename"}[f.kind]
         if f.detail:
             reason += f"\n[dim]{f.detail}[/]"
-        table.add_row(f.file, str(f.line) if f.line else "—", f.rule, reason, "—" if f.kind == "file" else f.masked)
+        row = [f.file, str(f.line) if f.line else "—", f.rule, reason, "—" if f.kind == "file" else f.masked]
+        table.add_row(*([f.commit] if history else []), *row)
 
     files_hit = len({f.file for f in findings})
     headline = Text.assemble(
         ("  🚫 COMMIT BLOCKED  " if staged else "  🚨 SECRETS FOUND  ", "bold white on red"),
         (f"  {len(findings)} potential secret{'s' * (len(findings) != 1)} in {files_hit} file{'s' * (files_hit != 1)}", "bold red"),
-        (f"  ({scanned} scanned)", "dim"),
+        (f"  ({scanned} {'commits' if history else 'files'} scanned)", "dim"),
     )
+    if history:
+        headline = Text.assemble(
+            ("  🕰  SECRETS IN HISTORY  ", "bold white on red"),
+            (f"  {len(findings)} potential secret{'s' * (len(findings) != 1)} in {files_hit} file{'s' * (files_hit != 1)}", "bold red"),
+            (f"  ({scanned} commits scanned)", "dim"),
+        )
 
     fix = Text()
+    if history:
+        fix.append("These are already in your git history, so editing the files now won't remove them.\n", style="bold")
+        fix.append(" 1. ", style="bold yellow")
+        fix.append("Rotate every real key listed above first. If the repo was ever pushed, assume they're compromised.\n")
+        fix.append(" 2. ", style="bold yellow")
+        fix.append("Then, if you need them gone from history: ")
+        fix.append("git filter-repo --replace-text <file>", style="bold cyan")
+        fix.append(" (or BFG), and force-push.\n")
+        fix.append(" 3. ", style="bold yellow")
+        fix.append("Run ")
+        fix.append("gitghost install", style="bold cyan")
+        fix.append(" so it can't happen again.")
+        console.print(Panel(Group(headline, Text(""), table, Text(""), fix), border_style="bold red", box=box.DOUBLE, padding=(1, 2)))
+        return
     fix.append("How to fix\n", style="bold")
     fix.append(" 1. ", style="bold yellow")
     fix.append("Move the secret into an environment variable or secrets manager, and load it at runtime.\n")
@@ -108,42 +140,59 @@ def render_findings(findings: list[Finding], scanned: int, staged: bool) -> None
 @app.command()
 def scan(
     path: Optional[Path] = typer.Argument(None, help="File or directory to scan. Omit to scan staged changes."),
+    history: bool = typer.Option(False, "--history", help="Scan every commit in this branch's history."),
+    all_refs: bool = typer.Option(False, "--all", help="With --history: scan all branches and tags too."),
     hook: bool = typer.Option(False, "--hook", help="Pre-commit mode: one quiet line when clean, full alert when not."),
     as_json: bool = typer.Option(False, "--json", help="Machine-readable output for CI."),
 ) -> None:
-    """Scan staged changes (default) or a path. Exits 1 if anything is found."""
-    staged = path is None
-    if not staged and not path.exists():
+    """Scan staged changes (default), a path, or the whole git history. Exits 1 if anything is found."""
+    if history and path is not None:
+        err.print("[bold red]gitghost:[/] use either a path or --history, not both")
+        raise typer.Exit(2)
+    staged = path is None and not history
+    if path is not None and not path.exists():
         err.print(f"[bold red]gitghost:[/] {path} does not exist")
         raise typer.Exit(2)
     try:
-        findings, scanned = scan_staged() if staged else scan_path(path)
+        if history:
+            findings, scanned = scan_history(all_refs=all_refs)
+        elif staged:
+            findings, scanned = scan_staged()
+        else:
+            findings, scanned = scan_path(path)
     except GitError as e:
         err.print(f"[bold red]gitghost:[/] {e}")
+        raise typer.Exit(2)
+    except Exception as e:  # a bug in GitGhost must never lock someone out of committing
+        err.print(f"[bold yellow]gitghost: internal error, scan skipped:[/] {type(e).__name__}: {e}")
+        err.print("[dim]Please report this at the project's GitHub issues page.[/]")
+        if hook and os.environ.get("GITGHOST_STRICT") != "1":
+            raise typer.Exit(0)
         raise typer.Exit(2)
 
     if as_json:
         print(json.dumps(
-            {"scanned": scanned, "findings": [
-                {"file": f.file, "line": f.line, "rule": f.rule, "kind": f.kind, "masked": f.masked, "detail": f.detail}
+            {"scanned": scanned, "unit": "commits" if history else "files", "findings": [
+                {"file": f.file, "line": f.line, "rule": f.rule, "kind": f.kind, "masked": f.masked, "detail": f.detail,
+                 **({"commit": f.commit} if history else {})}
                 for f in findings
-            ]}, indent=2,
+            ]}, indent=2, ensure_ascii=False,
         ))
         raise typer.Exit(1 if findings else 0)
 
     if findings:
         print_logo()
-        render_findings(findings, scanned, staged)
+        render_findings(findings, scanned, staged, history)
         raise typer.Exit(1)
 
     if hook:
         console.print(f"[bold green]👻 gitghost[/] [green]✓[/] [dim]{scanned} staged file{'s' * (scanned != 1)} clean[/]")
     else:
         print_logo()
-        what = "staged file" if staged else "file"
         if staged and scanned == 0:
-            console.print("[yellow]Nothing staged.[/] [dim]Stage files with git add, or pass a path: gitghost scan .[/]")
+            console.print("[yellow]Nothing staged.[/] [dim]Stage files with git add, scan a folder with [/][cyan]gitghost scan .[/][dim], or your history with [/][cyan]gitghost scan --history[/]")
         else:
+            what = "commit" if history else ("staged file" if staged else "file")
             console.print(Panel(f"[bold green]✓ No secrets found[/] [dim]in {scanned} {what}{'s' * (scanned != 1)}[/]", border_style="green", box=box.ROUNDED))
     raise typer.Exit(0)
 
@@ -151,6 +200,12 @@ def scan(
 # ---------------------------------------------------------------------------
 # install / uninstall
 # ---------------------------------------------------------------------------
+
+
+def write_hook(path: Path, content: str) -> None:
+    # LF line endings even on Windows (sh chokes on CRLF); open() form works on Python 3.9.
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(content)
 
 
 def hooks_dir() -> Path:
@@ -207,7 +262,7 @@ def install() -> None:
     else:
         content = "#!/bin/sh\n" + hook_block() + base
 
-    hook.write_text(content, encoding="utf-8", newline="\n")
+    write_hook(hook, content)
     hook.chmod(hook.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     verb = "Updated" if updating else ("Added to existing" if existing.strip() else "Installed")
@@ -231,7 +286,7 @@ def uninstall() -> None:
         hook.unlink()
         console.print("[bold green]Removed pre-commit hook.[/]")
     else:
-        hook.write_text(remaining, encoding="utf-8", newline="\n")
+        write_hook(hook, remaining)
         console.print("[bold green]Removed GitGhost[/] [dim](your other pre-commit code was kept)[/]")
 
 

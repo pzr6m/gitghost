@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitghost-cli"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Pre-commit hook that blocks API keys, passwords and .env files before they reach git."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,6 +13,7 @@ authors = [{ name = "Omar" }]
 keywords = ["git", "secrets", "pre-commit", "security", "api-keys", "entropy", "cli"]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
@@ -22,6 +23,11 @@ classifiers = [
 ]
 dependencies = ["typer>=0.9", "rich>=13"]
 
+[project.urls]
+Homepage = "https://github.com/YOUR-USERNAME/gitghost"
+Issues = "https://github.com/YOUR-USERNAME/gitghost/issues"
+Changelog = "https://github.com/YOUR-USERNAME/gitghost/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 dev = ["pytest>=7", "build", "twine"]
 
@@ -30,6 +36,9 @@ gitghost = "gitghost.cli:app"
 
 [tool.setuptools]
 packages = ["gitghost"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gitghost.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
