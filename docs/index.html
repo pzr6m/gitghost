@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitGhost · How safe is your repo?</title>
+<meta name="description" content="Paste a GitHub repo and get an A–F grade for leaked API keys and passwords. Free, runs in your browser.">
+<meta property="og:title" content="How safe is your repo? 👻 GitGhost">
+<meta property="og:description" content="Paste a GitHub repo, get an A–F grade for leaked API keys and passwords. Free and runs in your browser.">
+<meta property="og:image" content="https://pzr6m.github.io/gitghost/social.png">
+<meta property="og:url" content="https://pzr6m.github.io/gitghost/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
+<style>
+  :root{
+    --bg:#1e1e2e; --panel:#262637; --panel2:#2d2d42; --line:#3a3a52;
+    --text:#cdd6f4; --muted:#8a8fa8; --white:#fff;
+    --accent:#cba6f7; --green:#a6e3a1; --lime:#c6e48b; --yellow:#f9e2af; --orange:#fab387; --red:#f38ba8; --cyan:#89dceb;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 85% -10%,#3b1d5c 0,transparent 60%),var(--bg);color:var(--text);
+       font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"DejaVu Sans",sans-serif;min-height:100vh}
+  a{color:var(--accent)}
+  .wrap{max-width:820px;margin:0 auto;padding:48px 16px 40px}
+  header{text-align:center}
+  .ghost{font-size:64px;line-height:1}
+  h1{font-size:clamp(30px,6vw,46px);color:var(--white);margin:10px 0 6px;letter-spacing:-.5px}
+  .sub{color:var(--muted);margin:0 auto;max-width:560px}
+  form{display:flex;gap:10px;margin:32px auto 10px;max-width:640px}
+  input{flex:1;min-width:0;background:var(--panel);border:2px solid var(--line);color:var(--white);border-radius:12px;padding:14px 16px;font:16px var(--mono)}
+  input:focus{outline:none;border-color:var(--accent)}
+  button{cursor:pointer;border:0;border-radius:12px;font-weight:700;font-size:16px}
+  .go{background:var(--accent);color:#1e1e2e;padding:0 22px}
+  .go:disabled{opacity:.6;cursor:wait}
+  .examples{text-align:center;color:var(--muted);font-size:14px}
+  .examples button{background:none;color:var(--accent);font-weight:500;font-size:14px;padding:2px 4px;text-decoration:underline}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin-top:28px;min-width:0}
+  .status{text-align:center;color:var(--muted)}
+  .bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin:12px auto 0;max-width:420px}
+  .bar>div{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .error{border-color:var(--red);color:var(--red);text-align:center}
+  .result-top{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .grade{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;font:800 54px/1 system-ui,sans-serif;color:#1e1e2e;flex:none}
+  .verdict h2{margin:0;color:var(--white);font-size:24px}
+  .verdict p{margin:4px 0 0;color:var(--muted)}
+  .repo{font-family:var(--mono);color:var(--cyan)}
+  table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}
+  th{text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:8px 6px}
+  td{border-bottom:1px solid var(--line);padding:9px 6px;vertical-align:top;overflow-wrap:break-word}
+  td.mono{word-break:break-all}
+  td.mono,.mono{font-family:var(--mono)}
+  .secret{color:var(--red);font-family:var(--mono);white-space:nowrap}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted);margin-left:6px}
+  .note{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-top:16px;font-size:14px}
+  .share{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:22px}
+  .share h3,.cta h3{margin:0 0 6px;color:var(--white);font-size:17px}
+  .copyrow{display:flex;gap:8px}
+  .copyrow code{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px var(--mono);overflow-x:auto;white-space:nowrap}
+  .copy{background:var(--panel2);color:var(--text);padding:0 14px;font-size:14px;border:1px solid var(--line)}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .xbtn{background:#000;color:#fff;padding:10px 16px;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px}
+  .cta p{margin:0 0 10px;color:var(--muted)}
+  details{margin-top:28px;color:var(--muted);font-size:14px}
+  summary{cursor:pointer;color:var(--text)}
+  footer{text-align:center;color:var(--muted);font-size:13px;margin-top:40px}
+  [hidden]{display:none!important}
+  @media (max-width:560px){ .card{padding:18px} form{flex-direction:column} .go{padding:14px} .grade{width:96px;height:96px;font-size:44px} th:nth-child(3),td:nth-child(3){display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ghost">👻</div>
+    <h1>How safe is your repo?</h1>
+    <p class="sub">Paste a public GitHub repo. GitGhost checks every file for leaked API keys, passwords and <span class="mono">.env</span> files, and gives it a grade.</p>
+  </header>
+
+  <form id="form" autocomplete="off">
+    <input id="repo" placeholder="owner/repo or github.com link" aria-label="GitHub repository" spellcheck="false">
+    <button class="go" id="go" type="submit">Check it</button>
+  </form>
+  <div class="examples">Try: <button type="button" data-repo="pzr6m/gitghost">pzr6m/gitghost</button> <button type="button" data-repo="psf/requests">psf/requests</button> <button type="button" data-repo="pallets/flask">pallets/flask</button></div>
+
+  <div id="status" class="card status" hidden><span id="statusText">Starting…</span><div class="bar"><div id="barFill"></div></div></div>
+  <div id="error" class="card error" hidden></div>
+
+  <div id="result" class="card" hidden>
+    <div class="result-top">
+      <div class="grade" id="grade">A+</div>
+      <div class="verdict">
+        <h2 id="headline"></h2>
+        <p><span class="repo" id="repoName"></span> · <span id="scannedText"></span></p>
+      </div>
+    </div>
+    <div id="findingsWrap" hidden>
+      <table>
+        <thead><tr><th>File</th><th>What it looks like</th><th>Why</th><th>Preview</th></tr></thead>
+        <tbody id="findings"></tbody>
+      </table>
+      <div class="note">🔒 Previews are masked: GitGhost never shows a full key. <b>If this is your repo</b>, replace any real key with a new one from the provider, because it's already public. <b>If it isn't yours</b>, tell the owner privately rather than posting where it is.</div>
+    </div>
+    <div id="sampleNote" class="note" hidden></div>
+
+    <div class="share">
+      <div id="badgeBox">
+        <h3>Show off your grade</h3>
+        <div class="copyrow"><code id="badgeMd"></code><button class="copy" data-copy="badgeMd" type="button">Copy</button></div>
+        <div style="margin-top:8px" class="btns"><img id="badgeImg" alt="GitGhost grade badge" height="20"> <span style="color:var(--muted);font-size:13px">Paste into your README</span></div>
+      </div>
+      <div class="btns"><a class="xbtn" id="xShare" target="_blank" rel="noopener">Share on 𝕏</a><button class="copy" id="copyLink" type="button" style="padding:10px 14px">Copy link to this result</button></div>
+    </div>
+  </div>
+
+  <div class="card cta">
+    <h3>Stop leaks before they happen</h3>
+    <p>Install GitGhost once and it checks every <span class="mono">git commit</span> automatically. If you're about to commit a key, it blocks the commit.</p>
+    <div class="copyrow"><code id="cmd1">pip install git+https://github.com/pzr6m/gitghost</code><button class="copy" data-copy="cmd1" type="button">Copy</button></div>
+    <div class="copyrow" style="margin-top:8px"><code id="cmd2">cd your-project &amp;&amp; gitghost install</code><button class="copy" data-copy="cmd2" type="button">Copy</button></div>
+  </div>
+
+  <details>
+    <summary>How the grade works</summary>
+    <p>Every repo starts at 100. Each leaked key in a known format (OpenAI, AWS, Stripe, GitHub…) costs 40 points, a committed <span class="mono">.env</span> or key file costs 40, a private key block costs 60, and a hardcoded password costs 25. Random-looking strings that might be secrets cost 5 each, up to 20, so they alone can't drop a repo below B.</p>
+    <p><b>A+</b> 100 · <b>A</b> 90+ · <b>B</b> 75+ · <b>C</b> 60+ · <b>D</b> 40+ · <b>F</b> below 40</p>
+    <p>It checks the current files on the default branch. Keys deleted in a later commit are still in git history; to check those, install GitGhost and run <span class="mono">gitghost scan --history</span>. Very large repos are sampled (up to 400 files, config files first). Lines marked <span class="mono">gitghost:ignore</span> and paths in <span class="mono">.gitghostignore</span> are skipped.</p>
+  </details>
+
+  <footer>Runs entirely in your browser: files are downloaded straight from GitHub and never sent anywhere else.<br>
+    <a href="https://github.com/pzr6m/gitghost">GitGhost on GitHub</a> · free and open source (MIT)</footer>
+</div>
+
+<script src="scanner.js"></script>
+<script>
+(function () {
+  "use strict";
+  const G = window.GitGhost;
+  const $ = (id) => document.getElementById(id);
+  const SITE = "https://pzr6m.github.io/gitghost/";
+  const MAX_FILES = 400, CONCURRENCY = 8;
+  const COLORS = { "A+": "var(--green)", A: "var(--green)", B: "var(--lime)", C: "var(--yellow)", D: "var(--orange)", F: "var(--red)" };
+  const BADGE_COLORS = { "A+": "brightgreen", A: "brightgreen", B: "green", C: "yellow", D: "orange", F: "red" };
+  const PRIORITY = /(^|\/)(\.env[^/]*|config[^/]*|settings[^/]*|secrets?[^/]*|credentials?[^/]*|.*\.(env|ya?ml|json|toml|ini|cfg|conf|properties|tf|tfvars|sh|py|js|ts|jsx|tsx|go|rb|php|java|kt|cs|swift|rs))$/i;
+
+  function parseRepo(input) {
+    let s = input.trim().replace(/\.git$/, "").replace(/\/+$/, "");
+    const m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s#?]+)/i);
+    if (m) s = m[1] + "/" + m[2];
+    return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/.test(s) ? s : null;
+  }
+
+  function show(id) { for (const x of ["status", "error", "result"]) $(x).hidden = x !== id; }
+  function setStatus(text, frac) { show("status"); $("statusText").textContent = text; $("barFill").style.width = Math.round((frac || 0) * 100) + "%"; }
+  function fail(msg) { show("error"); $("error").textContent = msg; }
+
+  async function api(path) {
+    const res = await fetch("https://api.github.com/" + path, { headers: { Accept: "application/vnd.github+json" } });
+    if (res.status === 404) throw new Error("Repo not found. Check the name, and note that private repos can't be checked here.");
+    if (res.status === 403 || res.status === 429) {
+      const reset = Number(res.headers.get("x-ratelimit-reset")) * 1000;
+      const mins = reset ? Math.max(1, Math.ceil((reset - Date.now()) / 60000)) : 60;
+      throw new Error(`GitHub only allows 60 lookups an hour without signing in, and you've used them. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`);
+    }
+    if (!res.ok) throw new Error("GitHub returned an error (" + res.status + "). Try again in a moment.");
+    return res.json();
+  }
+
+  async function raw(repo, ref, path) {
+    const url = `https://raw.githubusercontent.com/${repo}/${encodeURIComponent(ref)}/${path.split("/").map(encodeURIComponent).join("/")}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.slice(0, 8192).includes("\u0000") ? null : text; // binary
+  }
+
+  async function scan(repo) {
+    const btn = $("go"); btn.disabled = true;
+    try {
+      setStatus("Looking up " + repo + "…", 0.02);
+      const meta = await api("repos/" + repo);
+      const ref = meta.default_branch;
+      setStatus("Listing files…", 0.05);
+      const tree = await api(`repos/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`);
+      const blobs = (tree.tree || []).filter((t) => t.type === "blob");
+
+      let globs = [];
+      if (blobs.some((b) => b.path === G.IGNORE_FILE)) globs = G.loadIgnoreGlobs(await raw(meta.full_name, ref, G.IGNORE_FILE));
+
+      const findings = [], candidates = [];
+      for (const b of blobs) {
+        if (G.inSkippedDir(b.path) || G.isIgnored(b.path, globs)) continue;
+        const reason = G.isSensitiveFile(b.path);
+        if (reason) findings.push({ file: b.path, line: 0, rule: "Sensitive file", kind: "file", secret: b.path.split("/").pop(), detail: reason });
+        if (G.shouldSkip(b.path) || (b.size || 0) > G.MAX_FILE_BYTES) continue;
+        candidates.push(b);
+      }
+      candidates.sort((a, b) => (PRIORITY.test(b.path) - PRIORITY.test(a.path)) || (a.size - b.size));
+      const chosen = candidates.slice(0, MAX_FILES);
+
+      let done = 0, scanned = 0;
+      const queue = chosen.slice();
+      async function worker() {
+        while (queue.length) {
+          const b = queue.shift();
+          const text = await raw(meta.full_name, ref, b.path).catch(() => null);
+          if (text !== null) { scanned++; findings.push(...G.scanText(b.path, text)); }
+          done++;
+          setStatus(`Checking files… ${done} / ${chosen.length}`, 0.05 + 0.95 * (done / Math.max(chosen.length, 1)));
+        }
+      }
+      await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+      render(meta.full_name, findings, scanned, candidates.length, !!tree.truncated);
+      history.replaceState(null, "", "?repo=" + meta.full_name); // owner/repo is URL-safe (validated)
+    } catch (e) {
+      fail(e.message || String(e));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function cell(text, cls) { const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td; }
+
+  function render(repo, findings, scanned, total, truncated) {
+    const { letter } = G.grade(findings);
+    show("result");
+    const g = $("grade"); g.textContent = letter; g.style.background = COLORS[letter];
+    const files = new Set(findings.map((f) => f.file)).size;
+    $("headline").textContent = findings.length === 0
+      ? (letter === "A+" ? "No secrets found. Nice." : "Looks clean")
+      : `Found ${findings.length} possible secret${findings.length === 1 ? "" : "s"} in ${files} file${files === 1 ? "" : "s"}`;
+    $("repoName").textContent = repo;
+    $("scannedText").textContent = `${scanned} file${scanned === 1 ? "" : "s"} checked`;
+
+    const tbody = $("findings"); tbody.textContent = "";
+    findings.sort((a, b) => (a.kind === "entropy") - (b.kind === "entropy") || a.file.localeCompare(b.file) || a.line - b.line);
+    for (const f of findings) {
+      const tr = document.createElement("tr");
+      tr.appendChild(cell(f.line ? `${f.file}:${f.line}` : f.file, "mono"));
+      const what = cell(f.rule);
+      if (f.kind === "entropy") { const t = document.createElement("span"); t.className = "tag"; t.textContent = "maybe"; what.appendChild(t); }
+      tr.appendChild(what);
+      tr.appendChild(cell(f.kind === "file" ? f.detail : f.kind === "entropy" ? "Looks random, like a key" : "Matches a known key format"));
+      tr.appendChild(cell(f.kind === "file" ? "—" : G.mask(f.secret), "secret"));
+      tbody.appendChild(tr);
+    }
+    $("findingsWrap").hidden = findings.length === 0;
+
+    const notes = [];
+    if (total > scanned && total > MAX_FILES) notes.push(`This is a big repo: GitGhost checked ${scanned} of ${total} files, config and source files first.`);
+    if (truncated) notes.push("GitHub only listed part of this repo because it's very large, so some files weren't checked.");
+    $("sampleNote").hidden = !notes.length; $("sampleNote").textContent = notes.join(" ");
+
+    const link = SITE + "?repo=" + repo;
+    const badgeUrl = `https://img.shields.io/badge/GitGhost-${encodeURIComponent(letter)}-${BADGE_COLORS[letter]}`;
+    $("badgeMd").textContent = `[![GitGhost grade: ${letter}](${badgeUrl})](${link})`;
+    $("badgeImg").src = badgeUrl;
+    $("badgeBox").hidden = !["A+", "A", "B"].includes(letter);
+    const tweet = letter.startsWith("A")
+      ? `My repo ${repo} got an ${letter} on GitGhost 👻 No leaked API keys. How safe is yours?`
+      : `Just checked ${repo} for leaked API keys with GitGhost 👻 How safe is your repo?`;
+    $("xShare").href = "https://x.com/intent/post?text=" + encodeURIComponent(tweet) + "&url=" + encodeURIComponent(link);
+    $("copyLink").dataset.text = link;
+  }
+
+  async function copy(text, btn) {
+    try { await navigator.clipboard.writeText(text); } catch (e) {
+      const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch (_) {} ta.remove();
+    }
+    const old = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = old), 1500);
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.copy) copy($(b.dataset.copy).textContent, b);
+    else if (b.id === "copyLink") copy(b.dataset.text || location.href, b);
+    else if (b.dataset.repo) { $("repo").value = b.dataset.repo; scan(b.dataset.repo); }
+  });
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const repo = parseRepo($("repo").value);
+    if (!repo) return fail("That doesn't look like a GitHub repo. Try something like owner/repo or https://github.com/owner/repo.");
+    scan(repo);
+  });
+  const initial = new URLSearchParams(location.search).get("repo");
+  if (initial && parseRepo(initial)) { $("repo").value = parseRepo(initial); scan(parseRepo(initial)); }
+})();
+</script>
+</body>
+</html>

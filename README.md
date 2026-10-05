@@ -9,6 +9,9 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![GitGhost grade: A+](https://img.shields.io/badge/GitGhost-A%2B-brightgreen)](https://pzr6m.github.io/gitghost/?repo=pzr6m/gitghost)
+
+### [🔍 Check any repo's grade →](https://pzr6m.github.io/gitghost/)
 
 ![GitGhost blocking a commit that contains an API key, then allowing it once the key is removed](docs/demo.gif)
 
@@ -22,6 +25,10 @@ Every time you run `git commit`, GitGhost checks the code you're about to commit
 - ✅ **Nothing found?** Your commit goes through as normal. It takes about 0.15 seconds.
 
 **Why it matters:** once a key is pushed to GitHub, bots can find it within minutes, and deleting it later doesn't remove it from your git history. The only real fix is never committing it in the first place.
+
+## Check a repo in your browser
+
+Not ready to install anything? Paste any public GitHub repo into **[pzr6m.github.io/gitghost](https://pzr6m.github.io/gitghost/)** and get an **A–F grade** in seconds. It runs in your browser, so nothing is sent anywhere. If your repo gets a good grade, you can add the badge to your README.
 
 ## Install
 
