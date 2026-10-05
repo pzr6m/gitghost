@@ -24,9 +24,9 @@ classifiers = [
 dependencies = ["typer>=0.9", "rich>=13"]
 
 [project.urls]
-Homepage = "https://github.com/YOUR-USERNAME/gitghost"
-Issues = "https://github.com/YOUR-USERNAME/gitghost/issues"
-Changelog = "https://github.com/YOUR-USERNAME/gitghost/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/pzr6m/gitghost"
+Issues = "https://github.com/pzr6m/gitghost/issues"
+Changelog = "https://github.com/pzr6m/gitghost/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "build", "twine"]
