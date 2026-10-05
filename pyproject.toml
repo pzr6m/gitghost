@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitghost-cli"
+version = "0.1.0"
+description = "Pre-commit hook that blocks API keys, passwords and .env files before they reach git."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Omar" }]
+keywords = ["git", "secrets", "pre-commit", "security", "api-keys", "entropy", "cli"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Topic :: Software Development :: Version Control :: Git",
+]
+dependencies = ["typer>=0.9", "rich>=13"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "build", "twine"]
+
+[project.scripts]
+gitghost = "gitghost.cli:app"
+
+[tool.setuptools]
+packages = ["gitghost"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

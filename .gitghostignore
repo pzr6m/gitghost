@@ -1,0 +1,4 @@
+# Paths GitGhost skips (fnmatch globs, one per line)
+tests/
+docs/
+demo.tape
