@@ -32,7 +32,7 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
     rich_markup_mode="rich",
-    help="👻 [bold]GitGhost[/] — stops API keys, passwords and .env files before they reach git.",
+    help="👻 [bold]GitGhost[/] stops you from committing passwords and API keys to git.\n\nStart with: [cyan]gitghost install[/] (inside your project folder)",
 )
 console = Console(highlight=False)
 err = Console(stderr=True, highlight=False)
@@ -139,13 +139,13 @@ def render_findings(findings: list[Finding], scanned: int, staged: bool, history
 
 @app.command()
 def scan(
-    path: Optional[Path] = typer.Argument(None, help="File or directory to scan. Omit to scan staged changes."),
-    history: bool = typer.Option(False, "--history", help="Scan every commit in this branch's history."),
-    all_refs: bool = typer.Option(False, "--all", help="With --history: scan all branches and tags too."),
-    hook: bool = typer.Option(False, "--hook", help="Pre-commit mode: one quiet line when clean, full alert when not."),
-    as_json: bool = typer.Option(False, "--json", help="Machine-readable output for CI."),
+    path: Optional[Path] = typer.Argument(None, help="Folder or file to check, e.g. [cyan].[/] for the whole project. Leave out to check what you're about to commit."),
+    history: bool = typer.Option(False, "--history", help="Check all your old commits for secrets that were already committed."),
+    all_refs: bool = typer.Option(False, "--all", help="With --history: include every branch, not just this one."),
+    hook: bool = typer.Option(False, "--hook", help="Used by the git hook: prints one short line when everything is clean.", hidden=True),
+    as_json: bool = typer.Option(False, "--json", help="Output JSON (for scripts and CI)."),
 ) -> None:
-    """Scan staged changes (default), a path, or the whole git history. Exits 1 if anything is found."""
+    """Check for secrets: in what you're about to commit (default), in a folder, or in old commits."""
     if history and path is not None:
         err.print("[bold red]gitghost:[/] use either a path or --history, not both")
         raise typer.Exit(2)
@@ -241,7 +241,7 @@ def strip_block(content: str) -> str:
 
 @app.command()
 def install() -> None:
-    """Add GitGhost to this repo's pre-commit hook (keeps any existing hook)."""
+    """Turn on automatic checking: every git commit in this project gets checked."""
     try:
         hdir = hooks_dir()
     except GitError as e:
@@ -272,7 +272,7 @@ def install() -> None:
 
 @app.command()
 def uninstall() -> None:
-    """Remove GitGhost from this repo's pre-commit hook (leaves other hook code alone)."""
+    """Turn off automatic checking for this project."""
     try:
         hook = hooks_dir() / "pre-commit"
     except GitError as e:
