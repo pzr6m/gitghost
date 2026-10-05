@@ -16,7 +16,7 @@
 
 AI tools like Lovable, Bolt, Cursor, v0 and Claude Code write working code fast, and often leak keys along the way. GitGhost catches:
 
-- 🔑 **API keys pasted into code:** OpenAI, Anthropic, Stripe, AWS, GitHub, Google and 13 more
+- 🔑 **API keys pasted into code:** OpenAI, Anthropic, Stripe, AWS, GitHub, Google, Slack and more (20 formats)
 - 🌐 **Secrets in public variables:** anything starting with `NEXT_PUBLIC_`, `VITE_` or `REACT_APP_` is copied into your website, where **anyone can read it**
 - 🗄️ **Supabase admin keys:** the `service_role` key skips all your database security
 - 📄 **Committed `.env` files**, private keys and hardcoded passwords
@@ -101,7 +101,7 @@ repos:
 
 GitGhost checks only the lines you're **adding** in a commit, so old code never blocks you. Each line goes through:
 
-1. **Known key formats:** 21 patterns, each gated by a cheap keyword check so commits stay fast (~0.15 s).
+1. **Known key formats:** 20 patterns, each gated by a cheap keyword check so commits stay fast (~0.15 s).
 2. **Public variables:** browser-exposed names (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`, `EXPO_PUBLIC_`…) whose name says they hold a secret. Keys meant to be public, like the Supabase anon key or Stripe publishable key, are left alone.
 3. **Randomness (Shannon entropy):** catches custom secrets with no known format, using thresholds calibrated for each string length, then filters out things that only *look* random (camelCase names, hashes, URLs, placeholders).
 
