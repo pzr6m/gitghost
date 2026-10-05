@@ -1,6 +1,6 @@
-# Releases happen automatically: bump __version__ in gitghost/__init__.py, add a CHANGELOG
-# entry and push to main. If tag v<version> doesn't exist yet, this workflow builds the
-# package, creates the tag + GitHub Release with the files attached. (Pushing a v* tag works too.)
+# Releases happen automatically: bump __version__ in gitghost/__init__.py and push to main.
+# If tag v<version> does not exist yet, this workflow builds the package and creates the tag
+# + a GitHub Release with the files attached (release notes are generated from the commits).
 #  - PyPI: also publishes once you've set it up (one time):
 #      1. pypi.org -> Your projects -> Publishing -> add a Trusted Publisher for this repo
 #         (workflow: release.yml, environment: pypi)
