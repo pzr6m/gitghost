@@ -5,7 +5,9 @@ Kept separate from the CLI so it can be unit-tested and reused without a termina
 
 from __future__ import annotations
 
+import base64
 import fnmatch
+import json
 import math
 import os
 import re
@@ -29,14 +31,15 @@ class Finding:
     file: str
     line: int  # 0 = whole file
     rule: str
-    kind: str  # "pattern" | "entropy" | "file"
+    kind: str  # "pattern" | "entropy" | "file" | "exposed"
     secret: str
     detail: str = ""
     commit: str = ""  # set when found by a history scan
 
     @property
     def masked(self) -> str:
-        return mask(self.secret)
+        # "exposed" findings hold a variable *name*, not a secret, so they're shown in full
+        return self.secret if self.kind == "exposed" else mask(self.secret)
 
 
 def mask(secret: str) -> str:
@@ -90,6 +93,7 @@ RULES: list[Rule] = [
         1,
         ("private key",),
     ),
+    Rule("Supabase Secret Key", re.compile(r"\b(sb_secret_[A-Za-z0-9_\-]{20,})"), 1, ("sb_secret_",)),
     Rule("JSON Web Token", re.compile(r"\b(eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,})"), 1, ("eyj",)),
     Rule(
         "Credentials in URL",
@@ -133,6 +137,46 @@ def _is_placeholder(value: str) -> bool:
     if re.match(r"^[^@\s:]+@[^@\s]+\.[a-z]{2,}$", v, re.I):  # email address
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# AI-built apps: secrets shipped to the browser, Supabase keys
+# ---------------------------------------------------------------------------
+
+# Frameworks copy env vars with these prefixes into the JavaScript every visitor downloads.
+PUBLIC_ENV = re.compile(r"\b(?:NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|NUXT_PUBLIC|VUE_APP|GATSBY|PUBLIC)_[A-Z0-9_]+\b")
+PUBLIC_ENV_KEYWORDS = ("next_public_", "vite_", "react_app_", "expo_public_", "nuxt_public_", "vue_app_", "gatsby_", "public_")
+ALWAYS_SECRET = re.compile(r"SECRET|PRIVATE_KEY|SERVICE_ROLE|SERVICE_KEY|PASSWORD|PASSWD|DATABASE_URL|DB_URL|POSTGRES|MONGO|SK_LIVE")
+SERVER_ONLY_PROVIDER = re.compile(
+    r"OPENAI|ANTHROPIC|CLAUDE|GEMINI|GROQ|MISTRAL|REPLICATE|DEEPSEEK|OPENROUTER|ELEVENLABS|PERPLEXITY|COHERE|RESEND|SENDGRID|TWILIO"
+)
+
+
+def exposed_env_name(name: str) -> bool:
+    """True for a browser-exposed variable whose name says it holds a secret.
+
+    NEXT_PUBLIC_OPENAI_API_KEY, VITE_SUPABASE_SERVICE_ROLE_KEY, REACT_APP_STRIPE_SECRET_KEY -> True
+    NEXT_PUBLIC_SUPABASE_ANON_KEY, VITE_STRIPE_PUBLISHABLE_KEY, NEXT_PUBLIC_OPENAI_MODEL  -> False
+    """
+    rest = name.split("_", 2)[-1] if name.startswith(("NEXT_PUBLIC_", "EXPO_PUBLIC_", "NUXT_PUBLIC_", "REACT_APP_", "VUE_APP_")) \
+        else name.split("_", 1)[-1]
+    if "PUBLISHABLE" in rest:
+        return False
+    if ALWAYS_SECRET.search(rest):
+        return True
+    return bool(SERVER_ONLY_PROVIDER.search(rest) and re.search(r"KEY|TOKEN", rest))
+
+
+def jwt_role(token: str) -> str | None:
+    """The "role" claim of a JWT, if its payload decodes. Supabase uses anon (public) and service_role (admin)."""
+    try:
+        seg = token.split(".")[1]
+        seg += "=" * (-len(seg) % 4)
+        data = json.loads(base64.urlsafe_b64decode(seg).decode("utf-8"))
+    except (ValueError, IndexError):
+        return None
+    role = data.get("role") if isinstance(data, dict) else None
+    return role if isinstance(role, str) else None
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +372,24 @@ def _scan_line(path: str, lineno: int, line: str, env_file: bool, cert_file: boo
             if rule.name == "Credentials in URL" and _is_placeholder(m.group(rule.group)):
                 continue
             claimed.append((s, e))
-            findings.append(Finding(path, lineno, rule.name, "pattern", m.group(rule.group)))
+            name = rule.name
+            if name == "JSON Web Token":
+                role = jwt_role(m.group(rule.group))
+                if role == "anon":
+                    continue  # Supabase anon keys are meant to be public
+                if role == "service_role":
+                    name = "Supabase Service Role Key"
+            findings.append(Finding(path, lineno, name, "pattern", m.group(rule.group)))
+
+    # Secrets named as browser-exposed env vars (NEXT_PUBLIC_..., VITE_..., ...)
+    if any(k in lower for k in PUBLIC_ENV_KEYWORDS):
+        for m in PUBLIC_ENV.finditer(line):
+            s, e = m.span()
+            if overlaps(s, e) or not exposed_env_name(m.group()):
+                continue
+            claimed.append((s, e))
+            findings.append(Finding(path, lineno, "Secret exposed to browser", "exposed", m.group(),
+                                    "sent to every visitor's browser"))
 
     # Sensitive assignments
     if env_file:

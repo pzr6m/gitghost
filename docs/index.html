@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GitGhost · How safe is your repo?</title>
-<meta name="description" content="Paste a GitHub repo and get an A–F grade for leaked API keys and passwords. Free, runs in your browser.">
-<meta property="og:title" content="How safe is your repo? 👻 GitGhost">
-<meta property="og:description" content="Paste a GitHub repo, get an A–F grade for leaked API keys and passwords. Free and runs in your browser.">
+<title>GitGhost · Did your AI-built app leak its keys?</title>
+<meta name="description" content="Built your app with Lovable, Bolt, Cursor or Claude Code? Paste the GitHub repo and get an A–F grade for leaked API keys. Free, runs in your browser.">
+<meta property="og:title" content="Did your AI-built app leak its API keys? 👻 GitGhost">
+<meta property="og:description" content="Paste your GitHub repo and get an A–F grade. Catches hardcoded keys, secrets in NEXT_PUBLIC_/VITE_ variables, Supabase service keys and .env files.">
 <meta property="og:image" content="https://pzr6m.github.io/gitghost/social.png">
 <meta property="og:url" content="https://pzr6m.github.io/gitghost/">
 <meta name="twitter:card" content="summary_large_image">
@@ -51,6 +51,7 @@
   td.mono{word-break:break-all}
   td.mono,.mono{font-family:var(--mono)}
   .secret{color:var(--red);font-family:var(--mono);white-space:nowrap}
+  .secret.breakable{white-space:normal;word-break:break-all}
   .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted);margin-left:6px}
   .note{background:var(--panel2);border-radius:10px;padding:12px 14px;margin-top:16px;font-size:14px}
   .share{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:22px}
@@ -72,8 +73,8 @@
 <div class="wrap">
   <header>
     <div class="ghost">👻</div>
-    <h1>How safe is your repo?</h1>
-    <p class="sub">Paste a public GitHub repo. GitGhost checks every file for leaked API keys, passwords and <span class="mono">.env</span> files, and gives it a grade.</p>
+    <h1>Did your AI-built app leak its keys?</h1>
+    <p class="sub">Built with Lovable, Bolt, Cursor, v0 or Claude Code? Paste the GitHub repo. GitGhost finds API keys in the code, secrets anyone can read in your website, Supabase admin keys and <span class="mono">.env</span> files, then gives it a grade.</p>
   </header>
 
   <form id="form" autocomplete="off">
@@ -98,7 +99,7 @@
         <thead><tr><th>File</th><th>What it looks like</th><th>Why</th><th>Preview</th></tr></thead>
         <tbody id="findings"></tbody>
       </table>
-      <div class="note">🔒 Previews are masked: GitGhost never shows a full key. <b>If this is your repo</b>, replace any real key with a new one from the provider, because it's already public. <b>If it isn't yours</b>, tell the owner privately rather than posting where it is.</div>
+      <div class="note">🔒 Previews are masked: GitGhost never shows a full key. <b>Fixing it with AI?</b> Ask your tool to "move this API call to a server route and use a non-public environment variable". <b>If this is your repo</b>, replace any real key with a new one from the provider, because it's already public. <b>If it isn't yours</b>, tell the owner privately rather than posting where it is.</div>
     </div>
     <div id="sampleNote" class="note" hidden></div>
 
@@ -121,7 +122,7 @@
 
   <details>
     <summary>How the grade works</summary>
-    <p>Every repo starts at 100. Each leaked key in a known format (OpenAI, AWS, Stripe, GitHub…) costs 40 points, a committed <span class="mono">.env</span> or key file costs 40, a private key block costs 60, and a hardcoded password costs 25. Random-looking strings that might be secrets cost 5 each, up to 20, so they alone can't drop a repo below B.</p>
+    <p>Every repo starts at 100. A Supabase admin key or a private key block costs 60 points. Each leaked key in a known format (OpenAI, AWS, Stripe, GitHub…) or a committed <span class="mono">.env</span>/key file costs 40. A secret in a public variable (<span class="mono">NEXT_PUBLIC_</span>, <span class="mono">VITE_</span>…) costs 30, and a hardcoded password costs 25. Random-looking strings that might be secrets cost 5 each, up to 20, so they alone can't drop a repo below B.</p>
     <p><b>A+</b> 100 · <b>A</b> 90+ · <b>B</b> 75+ · <b>C</b> 60+ · <b>D</b> 40+ · <b>F</b> below 40</p>
     <p>It checks the current files on the default branch. Keys deleted in a later commit are still in git history; to check those, install GitGhost and run <span class="mono">gitghost scan --history</span>. Very large repos are sampled (up to 400 files, config files first). Lines marked <span class="mono">gitghost:ignore</span> and paths in <span class="mono">.gitghostignore</span> are skipped.</p>
   </details>
@@ -239,8 +240,13 @@
       const what = cell(f.rule);
       if (f.kind === "entropy") { const t = document.createElement("span"); t.className = "tag"; t.textContent = "maybe"; what.appendChild(t); }
       tr.appendChild(what);
-      tr.appendChild(cell(f.kind === "file" ? f.detail : f.kind === "entropy" ? "Looks random, like a key" : "Matches a known key format"));
-      tr.appendChild(cell(f.kind === "file" ? "—" : G.mask(f.secret), "secret"));
+      tr.appendChild(cell(
+        f.kind === "file" ? f.detail
+        : f.kind === "entropy" ? "Looks random, like a key"
+        : f.kind === "exposed" ? "Public variable: anyone visiting your site can read it"
+        : f.rule === "Supabase Service Role Key" || f.rule === "Supabase Secret Key" ? "Admin key: skips all your database security"
+        : "Matches a known key format"));
+      tr.appendChild(cell(f.kind === "file" ? "—" : f.kind === "exposed" ? f.secret : G.mask(f.secret), f.kind === "exposed" ? "secret breakable" : "secret"));
       tbody.appendChild(tr);
     }
     $("findingsWrap").hidden = findings.length === 0;
@@ -256,8 +262,8 @@
     $("badgeImg").src = badgeUrl;
     $("badgeBox").hidden = !["A+", "A", "B"].includes(letter);
     const tweet = letter.startsWith("A")
-      ? `My repo ${repo} got an ${letter} on GitGhost 👻 No leaked API keys. How safe is yours?`
-      : `Just checked ${repo} for leaked API keys with GitGhost 👻 How safe is your repo?`;
+      ? `My app ${repo} got an ${letter} on GitGhost 👻 No leaked API keys. Built yours with AI? Check it:`
+      : `Just checked ${repo} for leaked API keys with GitGhost 👻 Built your app with AI? Check yours:`;
     $("xShare").href = "https://x.com/intent/post?text=" + encodeURIComponent(tweet) + "&url=" + encodeURIComponent(link);
     $("copyLink").dataset.text = link;
   }

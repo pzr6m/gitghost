@@ -4,6 +4,7 @@ Generates a few thousand lines mixing real key shapes, random tokens, identifier
 placeholders, URLs and .env lines, runs both scanners on them, and compares.
 """
 
+import base64
 import json
 import random
 import shutil
@@ -29,6 +30,19 @@ def r(n, a=B64):
     return "".join(rng.choice(a) for _ in range(n))
 
 
+def jwt(payload):
+    b = lambda d: base64.urlsafe_b64encode(json.dumps(d).encode()).decode().rstrip("=")
+    return b({"alg": "HS256", "typ": "JWT"}) + "." + b(payload) + "." + r(43, B64 + "_-")
+
+
+def env_name():
+    prefix = rng.choice(["NEXT_PUBLIC_", "VITE_", "REACT_APP_", "EXPO_PUBLIC_", "NUXT_PUBLIC_", "VUE_APP_", "GATSBY_", "PUBLIC_", "INVITE_", "MY_"])
+    mid = rng.choice(["OPENAI", "SUPABASE", "STRIPE", "ANTHROPIC", "FIREBASE", "APP", "GROQ", "DB", "TWILIO", ""])
+    tail = rng.choice(["API_KEY", "SERVICE_ROLE_KEY", "ANON_KEY", "SECRET_KEY", "PUBLISHABLE_KEY", "MODEL", "URL",
+                       "DATABASE_URL", "PASSWORD", "AUTH_TOKEN", "TOKEN", "SECRET", "PRIVATE_KEY", "EMAIL"])
+    return prefix + "_".join(x for x in (mid, tail) if x)
+
+
 def corpus():
     keys = [
         lambda: "AKIA" + r(16, string.ascii_uppercase + string.digits),
@@ -43,6 +57,10 @@ def corpus():
         lambda: "eyJ" + r(20) + ".eyJ" + r(30) + "." + r(43),
         lambda: r(rng.randint(16, 70), B64X),
         lambda: r(rng.choice([32, 40, 64]), HEX),
+        lambda: jwt({"iss": "supabase", "ref": r(20, string.ascii_lowercase), "role": rng.choice(["anon", "service_role", "authenticated"])}),
+        lambda: jwt(rng.choice([[1, 2], "role", {"role": 5}, {"sub": "x"}])),
+        lambda: "sb_" + rng.choice(["secret_", "publishable_"]) + r(rng.randint(15, 40), B64 + "_-"),
+        lambda: env_name(),
         lambda: rng.choice(["getUserAccountSettings2", "CAP_OPENNI_QVGA_30HZ", "PyUnicode_GetSize",
                             "your_api_key_here", "changeme", "${SECRET}", "xxxxxxxxxxxxxxxx",
                             "client_secret_post", "aaaaaaaaaaaaaaaaaaaaaaaaa1", "SOCKS5ProxyRequest"]),
@@ -54,6 +72,7 @@ def corpus():
         "print('{v}')", "# {v}", "url = 'https://user:{v}@db.example.com/x'", "see https://example.com/{v}",
         "x = b'\\x41{v}'", "{n} = os.environ['{v}']", "{v}", '{n} = "{v}"  # gitghost:ignore',
         "-----BEGIN RSA " + "PRIVATE KEY-----", "{n}=\"{v}\" {n}=\"{v}\"",
+        "const k = process.env.{e}", "const k = import.meta.env.{e};", "{e}={v}", "createClient(url, \"{v}\")",
     ]
     files = []
     for fi in range(40):
@@ -61,7 +80,7 @@ def corpus():
         lines = []
         for _ in range(100):
             v = rng.choice(keys)()
-            lines.append(rng.choice(templates).format(n=rng.choice(names), v=v))
+            lines.append(rng.choice(templates).format(n=rng.choice(names), v=v, e=env_name()))
             if path.startswith(".env") and rng.random() < 0.5:
                 lines[-1] = f"{rng.choice(names).upper().replace('.', '_')}={v}"
         files.append({"path": f"f{fi}/{path}", "text": "\n".join(lines) + "\n"})

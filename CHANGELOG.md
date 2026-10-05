@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0: checks for AI-built apps
+
+- New: flags secrets in browser-exposed variables (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_` and similar). Those get shipped to every visitor.
+- New: flags Supabase `service_role` keys and `sb_secret_` keys, and no longer flags Supabase anon keys (they're meant to be public)
+- New: web grader at https://pzr6m.github.io/gitghost/: paste a repo, get an A–F grade and a README badge
+
 ## 0.1.2 — first public release
 
 - `gitghost install` / `uninstall`: turn automatic checking on or off for a project (keeps any existing git hook)
