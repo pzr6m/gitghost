@@ -5,7 +5,7 @@ Thanks for helping! The most useful contributions are **new key formats** and **
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/gitghost
+git clone https://github.com/pzr6m/gitghost
 cd gitghost
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate

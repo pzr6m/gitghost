@@ -4,7 +4,7 @@
 
 **A pre-commit hook that stops API keys, passwords and `.env` files before they ever reach git.**
 
-[![CI](https://github.com/YOUR-USERNAME/gitghost/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/gitghost/actions/workflows/ci.yml)
+[![CI](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml/badge.svg)](https://github.com/pzr6m/gitghost/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/gitghost-cli)](https://pypi.org/project/gitghost-cli/)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0          # full history
-      - uses: YOUR-USERNAME/gitghost@v0.1.0
+      - uses: pzr6m/gitghost@v0.1.0
 ```
 
 Use `with: { mode: files }` to scan only the current files.
@@ -97,7 +97,7 @@ Use `with: { mode: files }` to scan only the current files.
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/YOUR-USERNAME/gitghost
+  - repo: https://github.com/pzr6m/gitghost
     rev: v0.1.0
     hooks:
       - id: gitghost
@@ -170,7 +170,7 @@ Emergency bypass (you probably shouldn't): `git commit --no-verify`
 ## Development
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/gitghost
+git clone https://github.com/pzr6m/gitghost
 cd gitghost
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
