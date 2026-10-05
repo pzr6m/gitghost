@@ -1,5 +1,5 @@
-name: GitGhost secret scan
-description: Fail the build if API keys, passwords or .env files are in the repo or its history.
+name: GitGhost Secret Scan
+description: Catch leaked API keys in AI-built apps - hardcoded keys, NEXT_PUBLIC_/VITE_ secrets, Supabase admin keys and .env files.
 author: Omar
 branding:
   icon: shield
