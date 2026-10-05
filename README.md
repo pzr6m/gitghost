@@ -84,7 +84,7 @@ jobs:
   gitghost:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0          # full history
       - uses: pzr6m/gitghost@v0.1.0
