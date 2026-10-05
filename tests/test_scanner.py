@@ -466,3 +466,25 @@ def test_exposed_finding_in_cli_output(repo):
     data = json.loads(runner.invoke(app, ["scan", "--json"]).output)
     assert [(f["rule"], f["kind"], f["masked"]) for f in data["findings"]] == [
         ("Secret exposed to browser", "exposed", "NEXT_PUBLIC_OPENAI_API_KEY")]
+
+
+def test_history_respects_ignore_marks_added_later(repo):
+    key = "sk_" + "live_" + rand(24)
+    (repo / "a.py").write_text(f'K = "{key}"\n')
+    commit_all(repo, "add")
+    data = json.loads(runner.invoke(app, ["scan", "--history", "--json"]).output)
+    assert len(data["findings"]) == 1
+    (repo / "a.py").write_text(f'K = "{key}"  # gitghost:ignore\n')
+    commit_all(repo, "mark as test data")
+    data = json.loads(runner.invoke(app, ["scan", "--history", "--json"]).output)
+    assert data["findings"] == []
+
+
+def test_history_still_reports_secret_that_was_deleted(repo):
+    key = "sk_" + "live_" + rand(24)
+    (repo / "a.py").write_text(f'K = "{key}"\n')
+    commit_all(repo, "add")
+    (repo / "a.py").write_text("K = None  # gitghost:ignore\n")
+    commit_all(repo, "remove")
+    data = json.loads(runner.invoke(app, ["scan", "--history", "--json"]).output)
+    assert len(data["findings"]) == 1  # a different line being ignored must not hide a real leak

@@ -609,7 +609,27 @@ def scan_history(cwd: str | Path | None = None, max_count: int | None = None, al
         if "does not have any commits" in err:
             return [], 0
         raise GitError(err.strip() or "git log failed")
-    return findings, commits
+    return _drop_ignored_now(root, findings), commits
+
+
+def _drop_ignored_now(root: Path, findings: list[Finding]) -> list[Finding]:
+    """Respect today's `gitghost:ignore` marks in history scans.
+
+    If the current version of a file marks a line as ignored, the same string in older
+    commits of that file is the same false alarm, so it isn't reported again.
+    """
+    current: dict[str, list[str]] = {}
+
+    def ignored_lines(path: str) -> list[str]:
+        if path not in current:
+            try:
+                text = git("show", f"HEAD:{path}", cwd=root)
+            except GitError:  # file deleted since, or no HEAD yet
+                text = ""
+            current[path] = [ln for ln in text.splitlines() if IGNORE_MARKER in ln]
+        return current[path]
+
+    return [f for f in findings if f.kind == "file" or not any(f.secret in ln for ln in ignored_lines(f.file))]
 
 
 def iter_files(target: Path) -> Iterator[Path]:
