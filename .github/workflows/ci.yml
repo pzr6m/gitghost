@@ -25,17 +25,16 @@ jobs:
         run: python -m pytest -v -rf --tb=short
 
   self-scan:
-    name: GitGhost scans its own history
+    name: GitHub Action scans this repo's history
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v6
+      - uses: ./            # the published Action, run against this repo
+      - uses: ./
         with:
-          python-version: "3.13"
-      - run: python -m pip install -e .
-      - run: gitghost scan --history
+          mode: files
 
   build:
     name: Package builds cleanly
