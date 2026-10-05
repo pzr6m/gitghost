@@ -1,0 +1,7 @@
+- id: gitghost
+  name: gitghost secret scan
+  description: Block API keys, passwords and .env files from being committed.
+  entry: gitghost scan --hook
+  language: python
+  pass_filenames: false
+  always_run: true
