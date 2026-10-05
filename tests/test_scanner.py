@@ -4,12 +4,12 @@ Fake keys are assembled at runtime (e.g. "sk_" + "live_") so this file itself ne
 contains a key-shaped string — otherwise GitHub push protection would block the repo.
 """
 
+import json
 import os
 import random
 import string
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -72,7 +72,7 @@ def test_hex_only_flagged_with_sensitive_context():
 # --- known formats ---------------------------------------------------------
 
 
-@pytest.mark.parametrize("secret,rule", [
+KNOWN_FORMATS = [
     ("AKIA" + "IOSFODNN7" + "EXAMPLE", "AWS Access Key ID"),
     ("sk-" + "proj-" + rand(40), "OpenAI API Key"),
     ("sk-" + rand(48), "OpenAI API Key"),
@@ -85,7 +85,10 @@ def test_hex_only_flagged_with_sensitive_context():
     ("hf" + "_" + rand(34), "Hugging Face Token"),
     ("-----BEGIN RSA " + "PRIVATE KEY-----", "Private Key Block"),
     ("eyJ" + rand(20) + ".eyJ" + rand(30) + "." + rand(43), "JSON Web Token"),
-])
+]
+
+
+@pytest.mark.parametrize("secret,rule", KNOWN_FORMATS, ids=[r for _, r in KNOWN_FORMATS])
 def test_known_formats(secret, rule):
     found = rules(f'x = "{secret}"')
     assert rule in found, found
@@ -298,3 +301,109 @@ def test_not_a_git_repo(tmp_path):
         assert runner.invoke(app, ["scan"]).exit_code == 2
     finally:
         os.chdir(old)
+
+
+# --- history ----------------------------------------------------------------
+
+
+def commit_all(repo, msg):
+    sh("git", "add", "-A", cwd=repo)
+    sh("git", "commit", "-qm", msg, cwd=repo)
+
+
+def test_history_finds_deleted_secret_at_introducing_commit(repo):
+    (repo / "app.py").write_text("print(1)\n")
+    commit_all(repo, "init")
+    (repo / "app.py").write_text('KEY = "sk_' + "live_" + rand(24) + '"\n')
+    commit_all(repo, "oops")
+    oops = sh("git", "rev-parse", "--short", "HEAD", cwd=repo).stdout.strip()
+    (repo / "app.py").write_text('import os\nKEY = os.environ["KEY"]\n')
+    commit_all(repo, "fix")
+    r = runner.invoke(app, ["scan", "--history", "--json"])
+    assert r.exit_code == 1
+    data = json.loads(r.output)
+    assert data["scanned"] == 3
+    assert [(f["rule"], f["commit"]) for f in data["findings"]] == [("Stripe Live Key", oops)]
+
+
+def test_history_reports_each_secret_once(repo):
+    key = "gh" + "p_" + rand(36)
+    (repo / "a.py").write_text(f'T = "{key}"\n')
+    commit_all(repo, "one")
+    (repo / "a.py").write_text(f'# moved\nT = "{key}"\n')
+    commit_all(repo, "two")
+    data = json.loads(runner.invoke(app, ["scan", "--history", "--json"]).output)
+    assert len(data["findings"]) == 1
+
+
+def test_history_empty_repo(repo):
+    r = runner.invoke(app, ["scan", "--history"])
+    assert r.exit_code == 0
+
+
+def test_history_and_path_are_exclusive(repo):
+    assert runner.invoke(app, ["scan", ".", "--history"]).exit_code == 2
+
+
+# --- robustness ---------------------------------------------------------------
+
+
+def test_internal_error_never_blocks_commit_in_hook_mode(repo, monkeypatch):
+    import gitghost.cli as cli
+
+    def boom(*a, **k):
+        raise RuntimeError("simulated bug")
+
+    monkeypatch.setattr(cli, "scan_staged", boom)
+    assert runner.invoke(app, ["scan", "--hook"]).exit_code == 0
+    monkeypatch.setenv("GITGHOST_STRICT", "1")
+    assert runner.invoke(app, ["scan", "--hook"]).exit_code == 2
+
+
+def test_windows_codepage_does_not_crash_hook(repo):
+    """Git on Windows pipes hook output in cp1252; emoji used to crash and block every commit."""
+    (repo / "ok.py").write_text("print(1)\n")
+    sh("git", "add", "ok.py", cwd=repo)
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    r = subprocess.run([sys.executable, "-m", "gitghost", "scan", "--hook"], cwd=repo, capture_output=True, env=env)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
+
+
+def test_unicode_and_spaces_in_filenames(repo):
+    d = repo / "my folder"
+    d.mkdir()
+    (d / "café config.py").write_text('K = "sk_' + "live_" + rand(24) + '"\n')
+    sh("git", "add", "-A", cwd=repo)
+    data = json.loads(runner.invoke(app, ["scan", "--json"]).output)
+    assert [f["file"] for f in data["findings"]] == ["my folder/café config.py"]
+
+
+def test_binary_files_are_skipped(repo):
+    (repo / "blob.bin").write_bytes(b"\x00\x01" + ("sk_" + "live_" + rand(24)).encode() + b"\x00")
+    sh("git", "add", "-A", cwd=repo)
+    assert runner.invoke(app, ["scan", "--hook"]).exit_code == 0
+
+
+@pytest.mark.parametrize("name", ['we"ird.py', "back\\slash.py", "tab\tname.py"])
+def test_quoted_filenames(repo, name):
+    if os.name == "nt" and any(c in name for c in '"\\\t'):
+        pytest.skip("not a legal filename on Windows")
+    (repo / name).write_text('K = "sk_' + "live_" + rand(24) + '"\n')
+    sh("git", "add", "-A", cwd=repo)
+    data = json.loads(runner.invoke(app, ["scan", "--json"]).output)
+    assert [f["file"] for f in data["findings"]] == [name]
+
+
+def test_path_scan_respects_gitignore(repo):
+    (repo / ".gitignore").write_text("secrets_dir/\nvenv/\n")
+    for d in ("secrets_dir", "venv", "src"):
+        (repo / d).mkdir()
+        (repo / d / "k.py").write_text('K = "sk_' + "live_" + rand(24) + '"\n')
+    data = json.loads(runner.invoke(app, ["scan", ".", "--json"]).output)
+    assert [f["file"] for f in data["findings"]] == ["src/k.py"]
+
+
+def test_path_scan_outside_git_walks_folder(tmp_path):
+    (tmp_path / "k.py").write_text('K = "sk_' + "live_" + rand(24) + '"\n')
+    findings, scanned = scan_path(tmp_path)
+    assert scanned == 1 and len(findings) == 1

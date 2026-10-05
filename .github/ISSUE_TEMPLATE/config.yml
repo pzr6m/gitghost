@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability in GitGhost
+    url: ../../security/policy
+    about: Please don't open a public issue for vulnerabilities.
